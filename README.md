@@ -26,15 +26,15 @@ Depending on how long you keep the fetcher running, it may use several hundred M
 
 Run the predictor script like this:
 
-python script.py <buy/sell> <ITEM_NAME> <NUMBER> <s/m/h/d> 
+python predictor.py <buy/sell> <ITEM_NAME> <NUMBER> <s/m/h/d> 
 
 Example:
 
-python script.py buy ENCHANTED_DIAMOND 30 m 
+python predictor.py buy ENCHANTED_DIAMOND 30 m 
 
 To stop the background data fetcher, run:
 
-python script.py --stop_fetcher
+python predictor.py --stop_fetcher
 
 📌 License
 
