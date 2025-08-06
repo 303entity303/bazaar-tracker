@@ -17,7 +17,7 @@ The script is designed to be easy to use even for non-expert users — just foll
 When you run the script for the first time, it will ask for your Hypixel API key and save it locally in config.json.
 The key is used only to fetch public Bazaar data.
 
-# 📁 Data Storage
+ 📁 Data Storage
 
 Price history is saved locally in the `prices/` folder.  
 It is recommended to start the data fetcher some time **before** making predictions, so the script can collect enough historical data.  
