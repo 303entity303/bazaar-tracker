@@ -41,7 +41,7 @@ python predictor.py --stop_fetcher
 
 📌 License
 
-This project is licensed under the CC BY-ND 4.0 license.
+This project is licensed under the GNU Affero General Public License v3.0 license.
 You are free to use and share it, but you may not modify or redistribute modified versions.
 
 ⸻
