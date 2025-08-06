@@ -29,7 +29,7 @@ Depending on how long you keep the fetcher running, it may use several hundred M
 
 Run the predictor script like this:
 
-python predictor.py <buy/sell> <ITEM_NAME> <NUMBER> <s/m/h/d> 
+python predictor.py <buy/sell> <ITEM_NAME> <NUMBER> <time> <s/m/h/d> 
 
 Example:
 
