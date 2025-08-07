@@ -41,8 +41,14 @@ python predictor.py --stop_fetcher
 
 📌 License
 
-This project is licensed under the GNU Affero General Public License v3.0 license.
-You are free to use and share it, but you may not modify or redistribute modified versions.
+This project is licensed under the [GNU Affero General Public License v3.0 (AGPL-3.0)](LICENSE).
+
+You are free to use, modify, and redistribute this code — even in commercial settings — **provided that**:
+- You keep this license (AGPL-3.0) intact.
+- You clearly credit the original author: **303Entity303**.
+- If you run a modified version as a service or tool accessible over the network, you must make the full source code of that version available to users.
+
+Any attempt to relicense, obfuscate, or redistribute this code without proper attribution and compliance will be considered a violation and may be subject to takedown via GitHub DMCA procedures.
 
 ⸻
 
