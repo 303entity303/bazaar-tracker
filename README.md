@@ -8,14 +8,8 @@ The script is designed to be easy to use even for non-expert users — just foll
 ## 🛠 Requirements
 
 - Python 3.8 or higher  
-- A valid Hypixel API key (you can generate one [here](developer.hypixel.net))  
 - Install dependencies with:
   pip install pandas numpy requests psutil pmdarima statsmodels
-
-🔐 API Key
-
-When you run the script for the first time, it will ask for your Hypixel API key and save it locally in config.json.
-The key is used only to fetch public Bazaar data.
 
  📁 Data Storage
 
