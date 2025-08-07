@@ -10,10 +10,19 @@ print("🔮 Note: This script only collects data — it does NOT make prediction
 
 print("\n📈 To get accurate predictions later, it is strongly recommended to keep this script running continuously.")
 print("💾 Warning: This script can generate from several hundred megabytes up to a few gigabytes of data per day.")
-
-# === CONFIGURAZIONE ===
-api_key = "037f2a4d-dc53-486a-8766-065500e50d8a"
-intervallo_secondi = 30
+#CONFIG_FILE = "./config.json"
+#def load_api_key():
+#    # Se esiste config.json, carica la chiave
+#    if os.path.exists(CONFIG_FILE):
+#        with open(CONFIG_FILE, "r") as f:
+#            try:
+#                data = json.load(f)
+#                return data.get("api_key")
+#            except json.JSONDecodeError:
+#                pass  # File corrotto o vuoto
+## === CONFIGURAZIONE ===
+#api_key = load_api_key()
+intervallo_secondi = 20
 output_dir = "prices"
 
 # Crea cartella 'prices/' se non esiste
@@ -75,7 +84,7 @@ try:
             now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
 
             url = "https://api.hypixel.net/v2/skyblock/bazaar"
-            response = requests.get(url, headers={"API-Key": api_key})
+            response = requests.get(url)#, headers={"API-Key": api_key})
 
             if response.status_code == 200:
                 data = response.json()

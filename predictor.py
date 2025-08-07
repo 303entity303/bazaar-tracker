@@ -1,27 +1,27 @@
 import os
 import json
-CONFIG_FILE = "./config.json"
+#CONFIG_FILE = "./config.json"
 
 
     # Se esiste config.json, carica la chiave
-def load_api_key():
-    # Se esiste config.json, carica la chiave
-    if os.path.exists(CONFIG_FILE):
-        with open(CONFIG_FILE, "r") as f:
-            try:
-                data = json.load(f)
-                return data.get("api_key")
-            except json.JSONDecodeError:
-                pass  # File corrotto o vuoto
-
-    # Se non esiste o non valida, chiedi all'utente
-    api_key = input("Insert your API KEY: ").strip()
-    with open(CONFIG_FILE, "w") as f:
-        json.dump({"api_key": api_key}, f)
-        print("to start predicting restart this program")
-        exit()
-    return api_key
-api_key = load_api_key()
+#def load_api_key():
+#    # Se esiste config.json, carica la chiave
+#    if os.path.exists(CONFIG_FILE):
+#        with open(CONFIG_FILE, "r") as f:
+#            try:
+#                data = json.load(f)
+#                return data.get("api_key")
+#            except json.JSONDecodeError as e:
+#                print(f"config.json is invalid or corrupted: {e}")  # File corrotto o vuoto
+#
+#    # Se non esiste o non valida, chiedi all'utente
+#    api_key = input("Insert your API KEY: ").strip()
+#    with open(CONFIG_FILE, "w") as f:
+#        json.dump({"api_key": api_key}, f)
+#        print("to start predicting restart this program")
+#        exit()
+#    return api_key
+#api_key = load_api_key()
 import warnings
 import argparse
 import sys
@@ -48,10 +48,9 @@ parser.add_argument('--stop_fetcher', action='store_true', help='stops the fetch
 
 args = parser.parse_args()
 
-#==========================================================================importazione ========================================================================
+#========================================================================== importation ========================================================================
 
 from statsmodels.tools.sm_exceptions import ValueWarning
-warnings.filterwarnings("ignore", category=ValueWarning)
 false = False
 true = True
 import requests
@@ -63,6 +62,10 @@ import numpy as np
 import pmdarima.arima
 import math
 from decimal import Decimal, getcontext
+
+#========================================================================== warning skipping ========================================================================
+
+warnings.filterwarnings("ignore", category=ValueWarning)
 warnings.filterwarnings(
     "ignore",
     message=r".*force_all_finite.*",
@@ -71,7 +74,16 @@ warnings.filterwarnings(
     "ignore",
     category=FutureWarning
 )
+warnings.filterwarnings(
+    "ignore",
+    message=r".*Likelihood.*"
+)
+#========================================================================== fetcher handling ========================================================================
 PID_FILE = "fetcher.pid"
+if os.path.exists(PID_FILE):
+    fetcher_exist = True
+else:
+    fetcher_exist= False
 if args.stop_fetcher:
     if os.path.exists(PID_FILE):
         try:
@@ -81,48 +93,64 @@ if args.stop_fetcher:
             proc = psutil.Process(pid)
             proc.terminate()  # Usa proc.kill() se vuoi forzare
             print(f"✅ process fetcher.py (PID {pid}) terminated.")
-        except (psutil.NoSuchProcess, ValueError):
-            print("⚠️ no process to terminate.")
+        except FileNotFoundError as e:
+                print(f"ℹ️ fetcher.pid not found: {e}")
+                # no exit(), viene già gestito sotto
+        except ValueError as e:
+            print(f"❌ Invalid PID in fetcher.pid: {e}")
+            exit()
+        except psutil.NoSuchProcess as e:
+            print(f"⚠️ No such process with PID in fetcher.pid: {e}")
+            # no exit(), ma si può continuare
+        except psutil.AccessDenied as e:
+            print(f"❌ Access denied when trying to terminate fetcher process: {e}")
+            exit()
         finally:
             os.remove(PID_FILE)
     else:
         print("ℹ️ no file fetcher.pid found, nothing to kill.")
     exit()
-#=====================================================================PREPARAZIONE PARAMETRI====================================================================
 
 FETCH_SCRIPT = "fetcher.py"
   # File per salvare il PID del processo fetcher.py
 # Argomenti platform-specific
-kwargs = {}
-if platform.system() == "Windows":
-    kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
-else:
-    kwargs["start_new_session"] = True
+if not fetcher_exist:
+    kwargs = {}
+    if platform.system() == "Windows":
+        kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
+    else:
+        kwargs["start_new_session"] = True
 
 # Avvia fetcher.py
-proc = subprocess.Popen([sys.executable, FETCH_SCRIPT], **kwargs)
+    proc = subprocess.Popen([sys.executable, FETCH_SCRIPT], **kwargs)
 
 # Salva il PID su file
-with open(PID_FILE, "w") as f:
-    f.write(str(proc.pid))
+    with open(PID_FILE, "w") as f:
+        f.write(str(proc.pid))
 
-print(f"fetcher.py started")
+        print(f"fetcher.py started")
 
-#=========================================================================COSA PREDIRRE=========================================================================
+#========================================================================= what to predict =========================================================================
 
 if args.mode == "buy":
     buy_o_sell = "buyPrice"
 elif args.mode == "sell":
     buy_o_sell = "sellPrice"
 
-#============================================================================OGGETTO============================================================================
+#============================================================================ item ============================================================================
 
 cartella = "prices/"
 
 oggetto = args.item_name
-
-if not os.path.exists(cartella):
-    os.makedirs(cartella)
+try:
+    if not os.path.exists(cartella):
+        os.makedirs(cartella)
+except PermissionError as e:
+    print(f"❌ Permission denied: cannot create directory '{cartella}'. {e}")
+    exit()
+except OSError as e:
+    print(f"❌ Failed to create directory '{cartella}': {e}")
+    exit()
 
 trovato = False
 
@@ -169,18 +197,29 @@ try:
     def carica_dati(input_file):
         global valorinu
         prices, dates = [], []
-        with open(input_file, "r") as f:
-            for line in f:
-                try:
-                    data = json.loads(line)
-                    price = data.get(buy_o_sell)
-                    timestamp_ms = data.get("timestamp_ms")
-                    if price is not None and timestamp_ms is not None:
-                        prices.append(float(price))
-                        dates.append(datetime.fromtimestamp(timestamp_ms / 1000))
-                        valorinu += 1
-                except:
-                    continue
+        try:
+            with open(input_file, "r") as f:
+                for line in f:
+                    try:
+                        data = json.loads(line)
+                        price = data.get(buy_o_sell)
+                        timestamp_ms = data.get("timestamp_ms")
+                        if price is not None and timestamp_ms is not None:
+                            prices.append(float(price))
+                            dates.append(datetime.fromtimestamp(timestamp_ms / 1000))
+                            valorinu += 1
+                    except json.JSONDecodeError as e:
+                        print(f"⚠️ Skipping invalid JSON line: {e}")
+        # no exit(), si può continuare
+        except FileNotFoundError as e:
+            print(f"❌ Price file '{input_file}' not found: {e}")
+            exit()
+        except PermissionError as e:
+            print(f"❌ Cannot read file '{input_file}': {e}")
+            exit()
+        except OSError as e:
+            print(f"❌ Error reading file '{input_file}': {e}")
+            exit()
         return pd.Series(prices, index=pd.to_datetime(dates)).sort_index()
 
     def errore_percentuale(prev, real):
@@ -205,15 +244,24 @@ try:
         exit()
 
     # Previsione una sola volta
-    print("predicting...")
-    model = pmdarima.ARIMA(order=(1, 1, 0), maxiter=8000)
-    model = model.fit(ts)
-    #print(model.summary())
-    #print("Best order found:", model.order)
-    if args.print_all:
-        forecast, conf_int = model.predict(n_periods=N_PREVISIONI, return_conf_int=True)
-    else:
-        forecast= model.predict(n_periods=N_PREVISIONI)
+    if args.debug:
+         print(f"predicting with {valorinu} historycal prices...")
+    try:
+        model = pmdarima.ARIMA(order=(0, 1, 2), maxiter=10000)
+        model = model.fit(ts)
+
+        #print(model.summary())
+        #print("Best order found:", model.order)
+        if args.print_all:
+            forecast, conf_int = model.predict(n_periods=N_PREVISIONI, return_conf_int=True)
+        else:
+            forecast= model.predict(n_periods=N_PREVISIONI)
+    except pmdarima.arima.utils.ModelFitWarning as e:
+        print(f"⚠️ Model fit warning: {e}")
+        # no exit(), ma solo se non blocca il forecast
+    except Exception as e:
+        print(f"❌ There was an error with the prediction:\n{e}")
+        exit()
 #    print(forecast) this line has no purpose and has only been used for testing purposes
 #    np.set_printoptions(precision=12) this line has no purpose and has only been used for testing purposes
     forecast = np.array(forecast)
@@ -240,32 +288,36 @@ try:
 #    print(f" ha valori diversi(quanti?)? np.unique(forecast)")  # quanti valori diversi ha?  # ultimi 10 #this line has no purpose and has only been used for testing purposes
 #    print(f"è un array valido? {type(forecast)}") this line has no purpose and has only been used for testing purposes
 #    print(f"{forecast.shape}") this line has no purpose and has only been used for testing purposes
-    if buy_o_sell == "buyPrice":
-        ore_mancanti = (max_index * intervallo_secondi) / 3600
+    try:
+        if buy_o_sell == "buyPrice":
+            ore_mancanti = (max_index * intervallo_secondi) / 3600
 
-        if (math.floor(ore_mancanti)) < 1:
-            minuti_mancanti = (max_index * intervallo_secondi) / 60
+            if (math.floor(ore_mancanti)) < 1:
+                minuti_mancanti = (max_index * intervallo_secondi) / 60
 
-        elif (math.floor(ore_mancanti)) >= 1:
-            minuti_mancanti = round(ore_mancanti - math.floor(ore_mancanti)) * 60
+            elif (math.floor(ore_mancanti)) >= 1:
+                minuti_mancanti = round(ore_mancanti - math.floor(ore_mancanti)) * 60
 
-            secondi_mancanti =round(minuti_mancanti - math.floor(minuti_mancanti)) * 60
-        print(f"\n Highest predicted price: {round(max_value, 3)} coins")
-        print(f" Expected in {round(ore_mancanti, 0)} Hours {round(minuti_mancanti)} Minutes {secondi_mancanti} Seconds")
-    elif buy_o_sell == "sellPrice":
-        ore_mancanti = (min_index * intervallo_secondi) / 3600
+                secondi_mancanti =round(minuti_mancanti - math.floor(minuti_mancanti)) * 60
+            print(f"\n Highest predicted price: {round(max_value, 3)} coins")
+            print(f" Expected in {round(ore_mancanti, 0)} Hours {round(minuti_mancanti)} Minutes {secondi_mancanti} Seconds")
+        elif buy_o_sell == "sellPrice":
+            ore_mancanti = (min_index * intervallo_secondi) / 3600
 
-        if (math.floor(ore_mancanti)) < 1:
-            minuti_mancanti = (min_index * intervallo_secondi) / 60
-            secondi_mancanti =round(minuti_mancanti - math.floor(minuti_mancanti)) * 60
+            if (math.floor(ore_mancanti)) < 1:
+                minuti_mancanti = (min_index * intervallo_secondi) / 60
+                secondi_mancanti =round(minuti_mancanti - math.floor(minuti_mancanti)) * 60
 
-        elif (math.floor(ore_mancanti)) >= 1:
-            minuti_mancanti = round(ore_mancanti - math.floor(ore_mancanti)) * 60
+            elif (math.floor(ore_mancanti)) >= 1:
+                minuti_mancanti = round(ore_mancanti - math.floor(ore_mancanti)) * 60
 
-            secondi_mancanti =round(minuti_mancanti - math.floor(minuti_mancanti)) * 60
+                secondi_mancanti =round(minuti_mancanti - math.floor(minuti_mancanti)) * 60
         print(f"\n Lowest predicted price: {round(min_value, 3)} coins")
         print(f" Expected in {round(ore_mancanti, 0)} Hours {round(minuti_mancanti)} Minutes {secondi_mancanti} Seconds")
         print ("You can stop this program by pressing the keys CTRL and C together.")
+    except Exception as e:
+        print(f"❌ There was an error whilst calculating the remaining time:\n{e}")
+        exit()
     #print(f"📍 Step: {max_index + 1}") #
     #print(f" in about {round(ore_mancanti, 0)} Hours {round(minuti_mancanti)} Minutes {secondi_mancanti} Seconds")
     #print(model.order) #this line has no purpose and has only been used for testing purposes
@@ -282,7 +334,8 @@ try:
                 max_deviation = max(abs(upper - pred), abs(pred - lower)) #this line has no purpose and has only been used for testing purposes
                 perc_deviation = (max_deviation / pred) * 100 if pred != 0 else 0 #this line has no purpose and has only been used for testing purposes
 
-                print(f"Step {i+1}: {round(pred, 3)} ±{round(perc_deviation, 4)}% (≈ {round(max_deviation, 2)})") #this line has no purpose and has only been used for testing purposes
+                #print(f"Step {i+1}: {round(pred, 3)} ±{round(perc_deviation, 4)}% (≈ {round(max_deviation, 2)})") #this line has no purpose and has only been used for testing purposes
+                print(f"{round(pred, 3)} ±{round(perc_deviation, 4)}%") #this line has no purpose and has only been used for testing purposes
             exit()
         elif print_anyway in ("n", "N", "no", "NO"):
             exit()
@@ -293,23 +346,23 @@ try:
     step = 0
     actual_values = []
     predicted_values = []
-    if args.debug:
-        print("    step    |  prediction   |  actual value | error (%) | conf (±val |  ±%)")
+    #if args.debug:
+        #print("    step    |  prediction   |  actual value | error (%) | conf (±val |  ±%)")
 
     while step < N_PREVISIONI:
         try:
-            now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
-            url = "https://api.hypixel.net/v2/skyblock/bazaar"
-            response = requests.get(url, headers={"API-Key": api_key})
+            #now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
+            #url = "https://api.hypixel.net/v2/skyblock/bazaar"
+            #response = requests.get(url, headers={"API-Key": api_key})
 
-            if response.status_code == 200:
-                data = response.json()
-                prodotto = data.get("products", {}).get(product_id)
+            #if response.status_code == 200:
+                #data = response.json()
+                #prodotto = data.get("products", {}).get(product_id)
 
-                if prodotto:
-                    q = prodotto.get("quick_status", {})
-                    sell_price =q.get("sellPrice", 0)
-                    timestamp_utc = datetime.now(timezone.utc).isoformat()
+                #if prodotto:
+                    #q = prodotto.get("quick_status", {})
+                    #sell_price =q.get("sellPrice", 0)
+                    #timestamp_utc = datetime.now(timezone.utc).isoformat()
 
                     # Salva nuovo record
                     #record = {
@@ -323,29 +376,38 @@ try:
 
                     # Confronta con previsione corrispondente
                     if args.debug:
-                        pred = forecast[step]
-                        actual = sell_price
-                        err = errore_percentuale(pred, actual)
+                        try:
+                            pred = forecast[step]
+                            actual = sell_price
+                            err = errore_percentuale(pred, actual)
 
-                        # Confidenza per questo step
-                        lower, upper = conf_int[step]
-                        max_dev = max(abs(upper - pred), abs(pred - lower))
-                        perc_dev = (max_dev / pred) * 100 if pred != 0 else 0
+                            # Confidenza per questo step
+                            lower, upper = conf_int[step]
+                            max_dev = max(abs(upper - pred), abs(pred - lower))
+                            perc_dev = (max_dev / pred) * 100 if pred != 0 else 0
 
-                        predicted_values.append(pred)
-                        actual_values.append(actual)
-                        print(f"step: {step+1:<5} | {pred:.4f} | {actual:.4f} | {err:.6f}% | ±{max_dev:.2f}  |  ±{perc_dev:.4f}% ") if err is not None else \
-                            print(f"step: {step+1:<5} | {pred:.4f} | {actual:.4f} | {'n.a.':>7} |  ±{max_dev:.2f} | ±{perc_dev:.4f}%")
-
+                            predicted_values.append(pred)
+                            actual_values.append(actual)
+                            print(f"step: {step+1:<5} | {pred:.4f} | {actual:.4f} | {err:.6f}% | ±{max_dev:.2f}  |  ±{perc_dev:.4f}% ") if err is not None else \
+                                print(f"step: {step+1:<5} | {pred:.4f} | {actual:.4f} | {'n.a.':>7} |  ±{max_dev:.2f} | ±{perc_dev:.4f}%")
+                        except IndexError as e:
+                            print(f"❌ Forecast index out of range: {e}")
+                            exit()
+                        except Exception as e:
+                            print(f"❌ There was an error whilst calculating the debug values:\n{e}")
+                            exit()
                     step += 1
-                else:
-                    print("item not found")
-            else:
-                print(f"❌ HTTP {response.status_code}")
+                #else:
+                #    print("item not found")
+            #else:
+            #    print(f"❌ HTTP {response.status_code}")
 
         except Exception as e:
             break #print(f"❗ Errore: {repr(e)}")
         time.sleep(intervallo_secondi)
 #    print("✅ Fine dei 100 step previsti.") this line has no purpose and has only been used for testing purposes
 except KeyboardInterrupt:
+    exit()
+except Exception as e:
+    print(f"❌ Unexpected error occurred: {e}")
     exit()
